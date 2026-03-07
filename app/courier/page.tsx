@@ -28,12 +28,13 @@ const FastScanner = ({ onScanSuccess, onCancel, readerId = 'reader-courier' }: a
     isScanning.current = true;
 
     const formatsToSupport = [Html5QrcodeSupportedFormats.QR_CODE, Html5QrcodeSupportedFormats.CODE_128, Html5QrcodeSupportedFormats.CODE_39];
+    // 💡 แก้ไขบั๊ก Cloudflare ด้วย verbose: false
     const html5QrCode = new Html5Qrcode(readerId, { verbose: false, formatsToSupport });
     scannerRef.current = html5QrCode;
 
     html5QrCode.start(
       { facingMode: 'environment' },
-      { fps: 10 }, // 🚀 ลด FPS เหลือ 10 ประหยัด CPU มือถือมหาศาล สแกนยังไวเหมือนเดิม
+      { fps: 10 }, // 🚀 ลด FPS ประหยัด CPU
       (decodedText) => {
         if (html5QrCode.isScanning) {
           html5QrCode.stop().then(() => {
@@ -79,26 +80,22 @@ export default function CourierPage() {
     
     setIsProcessing(true);
     try {
+      // 💡 Clean ข้อมูล ตัด Spacebar อัตโนมัติ
       const cleanTracking = trackingNumber.replace(/\s+/g, '');
       const cleanFirstName = recipientFirstName.trim().replace(/\s+/g, ' ');
       const cleanLastName = recipientLastName.trim().replace(/\s+/g, ' ');
 
+      // ดึง ID นักศึกษาเตรียมไว้ถ้าเคยลงทะเบียนแล้ว
       let matchedStudentId = null;
       const { data: existingStudent } = await supabase.from('students').select('id').eq('first_name', cleanFirstName).eq('last_name', cleanLastName).maybeSingle();
       if (existingStudent) matchedStudentId = existingStudent.id;
       
-      // 🚀 แก้ปัญหาคอขวดที่ 1: การล็อกตู้ (Optimistic Locking)
+      // 🚀 Optimistic Locking: ล็อกตู้ก่อนเอาของใส่ ป้องกันชนกัน
       const { data: availableLockers } = await supabase.from('lockers').select('id, zone, locker_number').eq('size', size).eq('is_available', true).limit(1);
       if (!availableLockers || availableLockers.length === 0) throw new Error(`ไม่มีตู้ว่างสำหรับขนาด ${size}`);
 
       const selectedLocker = availableLockers[0];
-      
-      // พยายามจองตู้ก่อน เพื่อป้องกันคนอื่นแย่งในเสี้ยววินาที
-      const { data: lockedLocker, error: lockErr } = await supabase.from('lockers')
-        .update({ is_available: false })
-        .eq('id', selectedLocker.id)
-        .eq('is_available', true) // เงื่อนไขสำคัญ: ต้องว่างอยู่ถึงจะอัปเดตได้
-        .select();
+      const { data: lockedLocker, error: lockErr } = await supabase.from('lockers').update({ is_available: false }).eq('id', selectedLocker.id).eq('is_available', true).select();
 
       if (lockErr || !lockedLocker || lockedLocker.length === 0) {
         throw new Error('คิวตู้ชนกัน! มีคนใช้ตู้นี้ไปในเสี้ยววินาทีที่ผ่านมา กรุณากดบันทึกใหม่อีกครั้ง');
@@ -113,8 +110,7 @@ export default function CourierPage() {
       }]);
 
       if (parcelError) {
-        // หากบันทึกพัสดุไม่ลง ให้คืนสถานะตู้กลับเป็นว่าง (Rollback)
-        await supabase.from('lockers').update({ is_available: true }).eq('id', selectedLocker.id);
+        await supabase.from('lockers').update({ is_available: true }).eq('id', selectedLocker.id); // Rollback ถ้าพัง
         throw new Error(`บันทึกพัสดุไม่สำเร็จ: ${parcelError.message}`);
       }
 
@@ -126,7 +122,6 @@ export default function CourierPage() {
     } finally { setIsProcessing(false); }
   };
 
-  // ... (ส่วน UI Render คงเดิมเหมือนที่เคยให้ไปเลยครับ เพื่อประหยัดพื้นที่ในการแสดงผล)
   if (successData) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-6">

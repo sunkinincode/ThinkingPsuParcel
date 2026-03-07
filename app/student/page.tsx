@@ -38,7 +38,7 @@ export default function StudentMobilePage() {
   const [isClaiming, setIsClaiming] = useState(false);
   const [isNewParcelArrived, setIsNewParcelArrived] = useState(false);
 
-  // ดึงข้อมูลเบาๆ แค่ SELECT เท่านั้น (เซฟ Database)
+  // ดึงข้อมูลเบาๆ ไม่เป็นภาระเซิร์ฟเวอร์
   const fetchParcels = async (supabaseStudentId: string) => {
     try {
       const { data } = await supabase.from('parcels')
@@ -50,6 +50,7 @@ export default function StudentMobilePage() {
     } catch (err) {}
   };
 
+  // 🚀 LocalStorage Session: เปิดแอปมาไม่ต้องล็อกอินใหม่
   useEffect(() => {
     const session = localStorage.getItem('studentSession');
     if (session) {
@@ -57,11 +58,12 @@ export default function StudentMobilePage() {
       setDbStudentId(parsedSession.id);
       setStudentName(parsedSession.name);
       setIsLoggedIn(true);
-      fetchParcels(parsedSession.id); // 🚀 โหลดข้อมูลตรงๆ ไม่ต้องยิงคำสั่ง UPDATE หนักๆ แล้ว
+      fetchParcels(parsedSession.id);
     }
     setIsCheckingSession(false);
   }, []);
 
+  // 🚀 Realtime Database: ไม่ต้องดึงซ้ำๆ รออัปเดตเอง
   useEffect(() => {
     if (!dbStudentId) return;
 
@@ -132,7 +134,7 @@ export default function StudentMobilePage() {
     try {
       await supabase.from('students').update({ title, first_name: cleanFirstName, last_name: cleanLastName }).eq('id', dbStudentId);
       
-      // Auto-claim ทำเฉพาะตอนกรอกครั้งแรกครั้งเดียว ปลอดภัยและไม่หนักเซิร์ฟเวอร์
+      // ผูกพัสดุเก่าที่ค้างอยู่ ตอนเด็กลงทะเบียนครั้งแรก
       await supabase.from('parcels').update({ student_id: dbStudentId }).eq('recipient_title', title).eq('recipient_first_name', cleanFirstName).eq('recipient_last_name', cleanLastName).is('student_id', null);
 
       const finalName = `${title}${cleanFirstName} ${cleanLastName}`;
@@ -149,7 +151,7 @@ export default function StudentMobilePage() {
     e.preventDefault();
     if (!claimTracking) return;
     setIsClaiming(true);
-    const cleanTracking = claimTracking.replace(/\s+/g, '');
+    const cleanTracking = claimTracking.replace(/\s+/g, ''); // 💡 ตัดช่องว่างให้เด็กด้วย
 
     try {
       const { data: foundParcel, error: searchErr } = await supabase.from('parcels').select('id').ilike('tracking_number', cleanTracking).is('student_id', null).eq('status', 'PENDING').single();
@@ -169,7 +171,6 @@ export default function StudentMobilePage() {
 
   if (isCheckingSession) return <div className="min-h-screen bg-emerald-600 flex items-center justify-center"><Loader2 className="w-10 h-10 text-white animate-spin" /></div>;
 
-  // ... (ส่วน UI เหมือนเดิมครับ เพื่อให้คงความสวยงามไว้)
   if (!isLoggedIn && !needsOnboarding) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-emerald-600 p-4 relative">
@@ -223,6 +224,7 @@ export default function StudentMobilePage() {
   return (
     <div className="min-h-screen bg-slate-50 pb-20">
       <header className="bg-emerald-600 text-white p-6 md:p-8 rounded-b-[2rem] shadow-lg flex justify-between items-start relative overflow-hidden">
+        {/* แบนเนอร์ Notification Realtime */}
         <div className={`absolute top-0 left-0 w-full bg-emerald-400 text-emerald-950 font-bold py-2 px-4 flex justify-center items-center gap-2 transition-transform duration-500 ${isNewParcelArrived ? 'translate-y-0' : '-translate-y-full'}`}>
           <BellRing className="w-4 h-4" /> พัสดุใหม่มาถึงแล้ว!
         </div>
