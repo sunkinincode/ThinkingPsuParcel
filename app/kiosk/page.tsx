@@ -167,9 +167,6 @@ export default function KioskPage() {
                  <FastKioskScanner onScanSuccess={(text: string) => handleBarcodeScanCheckout(text)} />
               </div>
               
-              <button onClick={() => { playSuccessSound(); handleBarcodeScanCheckout(parcelData.tracking_number); }} className="mt-4 text-sm text-slate-400 hover:text-slate-600 font-medium transition-colors">
-                (Dev Mode) ข้ามการสแกน
-              </button>
             </div>
           )}
 
