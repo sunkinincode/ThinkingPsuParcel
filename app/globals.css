@@ -1,0 +1,13 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Product+Sans:wght@300;400;500;700&display=swap');
+
+/* วิธีเรียกใช้ Tailwind ของเวอร์ชัน 4 */
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Product Sans', 'Google Sans', 'Noto Sans Thai', sans-serif;
+    background-color: #f8fafc;
+    color: #1e293b;
+  }
+}
