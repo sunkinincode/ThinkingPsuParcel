@@ -28,7 +28,7 @@ const FastScanner = ({ onScanSuccess, onCancel, readerId = 'reader-courier' }: a
     isScanning.current = true;
 
     const formatsToSupport = [Html5QrcodeSupportedFormats.QR_CODE, Html5QrcodeSupportedFormats.CODE_128, Html5QrcodeSupportedFormats.CODE_39];
-    const html5QrCode = new Html5Qrcode(readerId, { formatsToSupport });
+    const html5QrCode = new Html5Qrcode(readerId, { verbose: false, formatsToSupport });
     scannerRef.current = html5QrCode;
 
     html5QrCode.start(
