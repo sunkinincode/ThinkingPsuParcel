@@ -5,6 +5,7 @@ import { Package, ScanBarcode, CheckCircle2, Loader2, ArrowLeft } from 'lucide-r
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import Link from 'next/link';
 
+// 🎵 ฟังก์ชันสร้างเสียงสังเคราะห์ 
 const playSuccessSound = () => {
   try {
     const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
@@ -19,6 +20,7 @@ const playSuccessSound = () => {
   } catch (e) {}
 };
 
+// 🌟 Component สแกนเนอร์ (มีกรอบเล็งเป้าแล้ว)
 const FastScanner = ({ onScanSuccess, onCancel, readerId = 'reader-courier' }: any) => {
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const isScanning = useRef(false);
@@ -27,14 +29,24 @@ const FastScanner = ({ onScanSuccess, onCancel, readerId = 'reader-courier' }: a
     if (isScanning.current) return;
     isScanning.current = true;
 
-    const formatsToSupport = [Html5QrcodeSupportedFormats.QR_CODE, Html5QrcodeSupportedFormats.CODE_128, Html5QrcodeSupportedFormats.CODE_39];
-    // 💡 แก้ไขบั๊ก Cloudflare ด้วย verbose: false
+    const formatsToSupport = [
+      Html5QrcodeSupportedFormats.QR_CODE, 
+      Html5QrcodeSupportedFormats.CODE_128, 
+      Html5QrcodeSupportedFormats.CODE_39
+    ];
     const html5QrCode = new Html5Qrcode(readerId, { verbose: false, formatsToSupport });
     scannerRef.current = html5QrCode;
 
     html5QrCode.start(
-      { facingMode: 'environment' },
-      { fps: 10 }, // 🚀 ลด FPS ประหยัด CPU
+      { 
+        facingMode: 'environment',
+        advanced: [{ focusMode: 'continuous' } as any] // บังคับโฟกัส
+      },
+      { 
+        fps: 15, 
+        qrbox: 250, // 💡 สร้างกรอบสี่เหลี่ยม 250x250px เพื่อช่วยโฟกัส QR Code
+        disableFlip: false 
+      },
       (decodedText) => {
         if (html5QrCode.isScanning) {
           html5QrCode.stop().then(() => {
@@ -57,7 +69,7 @@ const FastScanner = ({ onScanSuccess, onCancel, readerId = 'reader-courier' }: a
   return (
     <div className="relative w-full">
       <div id={readerId} className="w-full rounded-2xl overflow-hidden border-4 border-slate-100 shadow-inner bg-black min-h-[300px]"></div>
-      <button onClick={onCancel} className="mt-6 w-full py-4 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-xl font-bold transition-colors">ยกเลิก</button>
+      <button onClick={onCancel} className="mt-6 w-full py-4 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-xl font-bold transition-colors shadow-sm">ยกเลิก</button>
     </div>
   );
 };
@@ -80,17 +92,14 @@ export default function CourierPage() {
     
     setIsProcessing(true);
     try {
-      // 💡 Clean ข้อมูล ตัด Spacebar อัตโนมัติ
       const cleanTracking = trackingNumber.replace(/\s+/g, '');
       const cleanFirstName = recipientFirstName.trim().replace(/\s+/g, ' ');
       const cleanLastName = recipientLastName.trim().replace(/\s+/g, ' ');
 
-      // ดึง ID นักศึกษาเตรียมไว้ถ้าเคยลงทะเบียนแล้ว
       let matchedStudentId = null;
       const { data: existingStudent } = await supabase.from('students').select('id').eq('first_name', cleanFirstName).eq('last_name', cleanLastName).maybeSingle();
       if (existingStudent) matchedStudentId = existingStudent.id;
       
-      // 🚀 Optimistic Locking: ล็อกตู้ก่อนเอาของใส่ ป้องกันชนกัน
       const { data: availableLockers } = await supabase.from('lockers').select('id, zone, locker_number').eq('size', size).eq('is_available', true).limit(1);
       if (!availableLockers || availableLockers.length === 0) throw new Error(`ไม่มีตู้ว่างสำหรับขนาด ${size}`);
 
@@ -110,7 +119,7 @@ export default function CourierPage() {
       }]);
 
       if (parcelError) {
-        await supabase.from('lockers').update({ is_available: true }).eq('id', selectedLocker.id); // Rollback ถ้าพัง
+        await supabase.from('lockers').update({ is_available: true }).eq('id', selectedLocker.id); // Rollback
         throw new Error(`บันทึกพัสดุไม่สำเร็จ: ${parcelError.message}`);
       }
 
@@ -202,7 +211,7 @@ export default function CourierPage() {
         <div className="fixed inset-0 bg-slate-900/90 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
           <div className="bg-white p-6 rounded-3xl shadow-2xl w-full max-w-md text-center">
             <h2 className="text-2xl font-bold text-slate-900 mb-2">สแกนบาร์โค้ดหน้ากล่อง</h2>
-            <p className="text-slate-500 mb-6 font-medium">นำบาร์โค้ดมาเล็งหน้ากล้อง</p>
+            <p className="text-slate-500 mb-6 font-medium">นำบาร์โค้ด/QR Code มาเล็งในกรอบ</p>
             <FastScanner onScanSuccess={(text: string) => { setTrackingNumber(text); setShowScanner(false); }} onCancel={() => setShowScanner(false)} />
           </div>
         </div>

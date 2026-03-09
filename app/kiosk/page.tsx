@@ -5,6 +5,7 @@ import { ScanBarcode, CheckCircle2, Package, Loader2, AlertCircle, ArrowLeft } f
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import Link from 'next/link';
 
+// 🎵 ฟังก์ชันสร้างเสียงสังเคราะห์ 
 const playSuccessSound = () => {
   try {
     const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
@@ -19,6 +20,7 @@ const playSuccessSound = () => {
   } catch (e) {}
 };
 
+// 🌟 Component สแกนเนอร์สำหรับ Kiosk (มีกรอบเล็งเป้าแล้ว)
 const FastKioskScanner = ({ onScanSuccess, readerId = 'reader-kiosk' }: any) => {
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const isScanning = useRef(false);
@@ -27,14 +29,21 @@ const FastKioskScanner = ({ onScanSuccess, readerId = 'reader-kiosk' }: any) => 
     if (isScanning.current) return;
     isScanning.current = true;
 
-    const formatsToSupport = [ Html5QrcodeSupportedFormats.QR_CODE, Html5QrcodeSupportedFormats.CODE_128, Html5QrcodeSupportedFormats.CODE_39 ];
-    // 💡 แก้ไขบั๊ก Cloudflare ด้วย verbose: false
+    const formatsToSupport = [ 
+      Html5QrcodeSupportedFormats.QR_CODE, 
+      Html5QrcodeSupportedFormats.CODE_128, 
+      Html5QrcodeSupportedFormats.CODE_39 
+    ];
     const html5QrCode = new Html5Qrcode(readerId, { verbose: false, formatsToSupport });
     scannerRef.current = html5QrCode;
 
     html5QrCode.start(
-      { facingMode: 'user' },
-      { fps: 10 }, // 🚀 ลด FPS
+      { facingMode: 'user' }, // ตู้ Kiosk ใช้กล้องหน้า
+      { 
+        fps: 15, 
+        qrbox: 250, // 💡 สร้างกรอบสี่เหลี่ยม 250x250px เพื่อช่วยโฟกัส
+        disableFlip: false 
+      },
       (decodedText) => {
         if (html5QrCode.isScanning) {
           html5QrCode.stop().then(() => {
@@ -139,13 +148,16 @@ export default function KioskPage() {
                 <div className="text-6xl font-black text-slate-900 drop-shadow-sm">โซน {parcelData?.lockers?.zone} - ตู้ {parcelData?.lockers?.locker_number}</div>
               </div>
               <h3 className="text-2xl font-bold text-slate-800 mb-2">กรุณาหยิบพัสดุและสแกนบาร์โค้ด</h3>
-              <p className="text-slate-500 mb-6 font-medium">นำบาร์โค้ดหน้ากล่องมาเล็งในกรอบเพื่อยืนยัน</p>
+              <p className="text-slate-500 mb-6 font-medium">นำบาร์โค้ดหรือ QR Code มาเล็งในกรอบเพื่อยืนยัน</p>
 
               <div className="max-w-sm mx-auto mb-4 relative">
                  {isLoading && <div className="absolute inset-0 bg-black/60 z-10 flex items-center justify-center rounded-3xl"><Loader2 className="w-12 h-12 text-white animate-spin"/></div>}
                  <FastKioskScanner onScanSuccess={(text: string) => handleBarcodeScanCheckout(text)} />
               </div>
               
+              <button onClick={() => { playSuccessSound(); handleBarcodeScanCheckout(parcelData.tracking_number); }} className="mt-4 text-sm text-slate-400 hover:text-slate-600 font-medium transition-colors">
+                (Dev Mode) ข้ามการสแกน
+              </button>
             </div>
           )}
 
