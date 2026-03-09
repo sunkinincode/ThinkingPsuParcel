@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "echo \"const config = { default: { override: { wrapper: 'cloudflare-node', converter: 'edge', proxyExternalRequest: 'fetch', incrementalCache: 'dummy', tagCache: 'dummy', queue: 'dummy' } }, edgeExternals: ['node:crypto'], middleware: { external: true, override: { wrapper: 'cloudflare-edge', converter: 'edge', proxyExternalRequest: 'fetch', incrementalCache: 'dummy', tagCache: 'dummy', queue: 'dummy' } } }; export default config;\" > open-next.config.ts && npx opennextjs-cloudflare build",
     "start": "next start",
     "lint": "eslint"
   },
