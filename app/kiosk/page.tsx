@@ -1,58 +1,61 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { CheckCircle2, Package, Loader2, AlertCircle, ArrowLeft } from 'lucide-react';
-// 💡 นำเข้า Html5QrcodeScanner
 import { Html5QrcodeScanner } from 'html5-qrcode';
 import Link from 'next/link';
 
 // 🎵 ฟังก์ชันสร้างเสียงสังเคราะห์ 
-const playSuccessSound = () => {
-  try {
-    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioContext) return;
-    const ctx = new AudioContext();
-    const osc = ctx.createOscillator();
-    const gainNode = ctx.createGain();
-    osc.connect(gainNode); gainNode.connect(ctx.destination);
-    osc.type = 'sine'; osc.frequency.setValueAtTime(880, ctx.currentTime); osc.frequency.setValueAtTime(1046.50, ctx.currentTime + 0.1);
-    gainNode.gain.setValueAtTime(0.1, ctx.currentTime); gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-    osc.start(); osc.stop(ctx.currentTime + 0.3);
-  } catch (e) {}
+const playSound = () => { 
+  try { 
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)(); 
+    const osc = ctx.createOscillator(); 
+    osc.connect(ctx.destination); 
+    osc.frequency.setValueAtTime(880, ctx.currentTime); 
+    osc.start(); 
+    osc.stop(ctx.currentTime + 0.1); 
+  } catch (e) {} 
 };
 
-// 🌟 Component สแกนเนอร์สำหรับ Kiosk (ใช้ UI สำเร็จรูป)
+// 🌟 Component สแกนเนอร์สำหรับ Kiosk (แก้บั๊กกล้องแฝดด้วย useRef)
 const FastKioskScanner = ({ onScanSuccess, readerId = 'reader-kiosk' }: any) => {
+  const scannerRef = useRef<Html5QrcodeScanner | null>(null);
+
   useEffect(() => {
-    const element = document.getElementById(readerId);
+    const element = document.getElementById(readerId); 
     if (element) element.innerHTML = '';
 
-    const scanner = new Html5QrcodeScanner(
-      readerId,
-      {
-        fps: 10,
-        rememberLastUsedCamera: true,
-      },
-      false
-    );
+    if (!scannerRef.current) {
+      scannerRef.current = new Html5QrcodeScanner(
+        readerId, 
+        { fps: 10, rememberLastUsedCamera: true }, 
+        false
+      );
 
-    scanner.render(
-      (decodedText) => {
-        scanner.clear();
-        playSuccessSound();
-        onScanSuccess(decodedText);
-      },
-      (error) => {}
-    );
+      scannerRef.current.render(
+        (text) => { 
+          if (scannerRef.current) {
+            scannerRef.current.clear().catch(() => {});
+            scannerRef.current = null;
+          }
+          playSound(); 
+          onScanSuccess(text); 
+        }, 
+        () => {}
+      );
+    }
 
-    return () => {
-      scanner.clear().catch((e) => console.error(e));
+    return () => { 
+      if (scannerRef.current) {
+        scannerRef.current.clear().catch(()=>{}); 
+        scannerRef.current = null;
+      }
     };
   }, [onScanSuccess, readerId]);
 
   return (
-    <div className="w-full bg-white text-slate-900 rounded-3xl overflow-hidden shadow-inner">
-      <div id={readerId} className="w-full"></div>
+    <div className="w-full bg-white rounded-2xl overflow-hidden shadow-inner">
+      <div id={readerId} className="w-full text-slate-900 [&>div]:border-none"></div>
     </div>
   );
 };
@@ -60,29 +63,29 @@ const FastKioskScanner = ({ onScanSuccess, readerId = 'reader-kiosk' }: any) => 
 export default function KioskPage() {
   const [pickupCode, setPickupCode] = useState('');
   const [step, setStep] = useState<'ENTER_CODE' | 'SCAN_BARCODE' | 'SUCCESS'>('ENTER_CODE');
-  
   const [isLoading, setIsLoading] = useState(false);
   const [parcelData, setParcelData] = useState<any>(null);
 
-  const handleVerifyCode = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const verifyCode = async (e: React.FormEvent) => {
+    e.preventDefault(); 
     if (pickupCode.length !== 6) return alert('กรุณากรอกรหัสรับพัสดุให้ครบ 6 หลัก');
-
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.from('parcels').select('id, tracking_number, locker_id, lockers ( zone, locker_number )').eq('pickup_code', pickupCode).eq('status', 'PENDING').single();
+      const { data, error } = await supabase.from('parcels').select('id, tracking_number, locker_id, lockers(zone, locker_number)').eq('pickup_code', pickupCode).eq('status', 'PENDING').single();
       if (error || !data) throw new Error('รหัสไม่ถูกต้อง หรือพัสดุนี้ถูกรับไปแล้ว');
-      
-      playSuccessSound();
-      setParcelData(data);
+      playSound(); 
+      setParcelData(data); 
       setStep('SCAN_BARCODE');
-    } catch (err: any) {
-      alert(err.message); setPickupCode('');
-    } finally { setIsLoading(false); }
+    } catch (err: any) { 
+      alert(err.message); 
+      setPickupCode(''); 
+    } finally { 
+      setIsLoading(false); 
+    }
   };
 
-  const handleBarcodeScanCheckout = async (scannedText: string) => {
-    if (isLoading) return;
+  const checkout = async (scannedText: string) => {
+    if (isLoading) return; 
     setIsLoading(true);
     try {
       if (!scannedText.includes(parcelData.tracking_number) && !parcelData.tracking_number.includes(scannedText)) {
@@ -90,21 +93,23 @@ export default function KioskPage() {
       }
       await supabase.from('parcels').update({ status: 'PICKED_UP', picked_up_at: new Date().toISOString() }).eq('id', parcelData.id);
       await supabase.from('lockers').update({ is_available: true }).eq('id', parcelData.locker_id);
-
-      setStep('SUCCESS');
-      setTimeout(() => resetKiosk(), 7000);
-    } catch (err: any) { alert(err.message); } finally { setIsLoading(false); }
+      
+      setStep('SUCCESS'); 
+      setTimeout(() => { setPickupCode(''); setParcelData(null); setStep('ENTER_CODE'); }, 7000);
+    } catch (err: any) { 
+      alert(err.message); 
+    } finally { 
+      setIsLoading(false); 
+    }
   };
 
-  const resetKiosk = () => { setPickupCode(''); setParcelData(null); setStep('ENTER_CODE'); };
-
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-8 landscape:flex-row relative">
-      <Link href="/" className="absolute top-6 left-8 text-slate-400 hover:text-white flex items-center font-medium transition-colors">
-        <ArrowLeft className="w-5 h-5 mr-2" /> กลับหน้าหลัก
+    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-8 text-slate-900 relative">
+      <Link href="/" className="absolute top-6 left-8 text-slate-400 hover:text-white transition-colors flex items-center">
+        <ArrowLeft className="w-5 h-5 mr-2"/> กลับหน้าหลัก
       </Link>
-
       <div className="bg-white w-full max-w-5xl rounded-[2.5rem] shadow-2xl overflow-hidden flex min-h-[600px] border border-slate-800">
+        
         <div className="w-1/3 bg-slate-900 p-12 text-white flex flex-col justify-between hidden md:flex border-r border-slate-800">
           <div>
             <div className="bg-purple-600 w-20 h-20 rounded-3xl flex items-center justify-center mb-8 shadow-lg shadow-purple-600/30">
@@ -123,38 +128,36 @@ export default function KioskPage() {
           {step === 'ENTER_CODE' && (
             <div className="w-full max-w-md text-center animate-in fade-in duration-500">
               <h2 className="text-4xl font-bold text-slate-900 mb-4 tracking-tight">กรอกรหัสรับพัสดุ</h2>
-              <form onSubmit={handleVerifyCode}>
-                <input type="text" maxLength={6} value={pickupCode} onChange={(e) => setPickupCode(e.target.value.replace(/[^0-9]/g, ''))} className="w-full text-center text-6xl tracking-[0.4em] font-black text-slate-800 bg-white border-4 border-slate-200 rounded-3xl py-8 mb-8 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/20 outline-none shadow-sm transition-all" placeholder="------" autoFocus />
-                <button type="submit" disabled={isLoading || pickupCode.length !== 6} className="w-full bg-purple-600 disabled:bg-slate-300 text-white text-2xl font-bold py-6 rounded-2xl hover:bg-purple-700 transition-all shadow-lg hover:shadow-xl flex justify-center items-center">
-                  {isLoading ? <Loader2 className="w-8 h-8 animate-spin" /> : 'ยืนยันรหัส'}
+              <form onSubmit={verifyCode}>
+                <input type="text" maxLength={6} value={pickupCode} onChange={e=>setPickupCode(e.target.value.replace(/[^0-9]/g, ''))} className="w-full text-center text-6xl tracking-[0.4em] font-black text-slate-800 bg-white border-4 border-slate-200 rounded-3xl py-8 mb-8 focus:border-purple-500 outline-none shadow-sm transition-all" placeholder="------" autoFocus />
+                <button disabled={pickupCode.length !== 6 || isLoading} className="w-full bg-purple-600 disabled:bg-slate-300 text-white py-6 text-2xl font-bold rounded-2xl flex justify-center hover:bg-purple-700 transition-all shadow-lg">
+                  {isLoading ? <Loader2 className="animate-spin w-8 h-8"/> : 'ยืนยันรหัส'}
                 </button>
               </form>
             </div>
           )}
-
           {step === 'SCAN_BARCODE' && (
             <div className="w-full max-w-lg text-center animate-in zoom-in-95 duration-500">
-              <div className="bg-white border-2 border-yellow-400 rounded-3xl p-6 mb-8 shadow-lg">
+              <div className="bg-white border-2 border-yellow-400 p-6 rounded-3xl mb-8 shadow-lg">
                 <p className="text-slate-600 text-lg mb-2 font-bold flex items-center justify-center gap-2"><AlertCircle className="w-6 h-6 text-yellow-500"/> พัสดุของคุณอยู่ที่</p>
-                <div className="text-6xl font-black text-slate-900 drop-shadow-sm">โซน {parcelData?.lockers?.zone} - ตู้ {parcelData?.lockers?.locker_number}</div>
+                <div className="text-6xl font-black text-slate-900 drop-shadow-sm">โซน {parcelData.lockers?.zone} - ตู้ {parcelData.lockers?.locker_number}</div>
               </div>
-              <h3 className="text-2xl font-bold text-slate-800 mb-2">กรุณาหยิบพัสดุและสแกนบาร์โค้ด</h3>
-              <p className="text-slate-500 mb-4 font-medium">นำบาร์โค้ดหรือ QR Code มาเล็งหน้ากล้อง</p>
-
+              <h3 className="text-2xl font-bold mb-2 text-slate-800">กรุณาหยิบพัสดุและสแกนบาร์โค้ด</h3>
+              <p className="text-slate-500 mb-6 font-medium">นำบาร์โค้ดหรือ QR Code มาเล็งหน้ากล้องเพื่อยืนยัน</p>
+              
               <div className="max-w-sm mx-auto mb-4 relative">
-                 {isLoading && <div className="absolute inset-0 bg-black/60 z-10 flex items-center justify-center rounded-3xl"><Loader2 className="w-12 h-12 text-white animate-spin"/></div>}
-                 <FastKioskScanner onScanSuccess={(text: string) => handleBarcodeScanCheckout(text)} />
+                {isLoading && <div className="absolute inset-0 bg-black/60 z-10 flex items-center justify-center rounded-3xl"><Loader2 className="w-12 h-12 text-white animate-spin"/></div>}
+                <FastKioskScanner onScanSuccess={checkout} />
               </div>
               
-              <button onClick={() => { playSuccessSound(); handleBarcodeScanCheckout(parcelData.tracking_number); }} className="mt-4 text-sm text-slate-400 hover:text-slate-600 font-medium transition-colors">
+              <button onClick={() => checkout(parcelData.tracking_number)} className="mt-4 text-sm text-slate-400 hover:text-slate-600 font-medium transition-colors">
                 (Dev Mode) ข้ามการสแกน
               </button>
             </div>
           )}
-
           {step === 'SUCCESS' && (
             <div className="text-center animate-in zoom-in duration-500">
-              <CheckCircle2 className="w-40 h-40 text-emerald-500 mx-auto mb-8 drop-shadow-md" />
+              <CheckCircle2 className="w-40 h-40 text-emerald-500 mx-auto mb-8 drop-shadow-md"/>
               <h2 className="text-5xl font-black text-slate-900 mb-4 tracking-tight">รับพัสดุสำเร็จ!</h2>
               <p className="text-2xl text-slate-600 font-medium mb-10">ขอบคุณที่ใช้บริการตู้รับพัสดุอัตโนมัติ</p>
               <div className="inline-block bg-slate-100 px-6 py-3 rounded-full text-slate-500 font-medium animate-pulse">หน้าจอจะกลับสู่หน้าหลักใน 7 วินาที...</div>
