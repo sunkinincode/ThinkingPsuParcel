@@ -1,8 +1,9 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { ScanBarcode, CheckCircle2, Package, Loader2, AlertCircle, ArrowLeft } from 'lucide-react';
-import { Html5Qrcode } from 'html5-qrcode';
+import { CheckCircle2, Package, Loader2, AlertCircle, ArrowLeft } from 'lucide-react';
+// 💡 นำเข้า Html5QrcodeScanner
+import { Html5QrcodeScanner } from 'html5-qrcode';
 import Link from 'next/link';
 
 // 🎵 ฟังก์ชันสร้างเสียงสังเคราะห์ 
@@ -20,77 +21,38 @@ const playSuccessSound = () => {
   } catch (e) {}
 };
 
-// 🌟 Component สแกนเนอร์สำหรับ Kiosk (ล็อกสัดส่วนภาพ)
+// 🌟 Component สแกนเนอร์สำหรับ Kiosk (ใช้ UI สำเร็จรูป)
 const FastKioskScanner = ({ onScanSuccess, readerId = 'reader-kiosk' }: any) => {
-  const scannerRef = useRef<Html5Qrcode | null>(null);
-  const isScanning = useRef(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
   useEffect(() => {
-    if (!document.getElementById(readerId) || isScanning.current) return;
-    
-    isScanning.current = true;
-    setErrorMsg(null);
+    const element = document.getElementById(readerId);
+    if (element) element.innerHTML = '';
 
-    const html5QrCode = new Html5Qrcode(readerId, { verbose: false });
-    scannerRef.current = html5QrCode;
-
-    html5QrCode.start(
-      { facingMode: 'user' }, 
-      { 
-        fps: 10, 
-        // 💡 ตู้ Kiosk ใช้สแกนทั้ง QR และบาร์โค้ด ใช้กรอบขนาด 250x200 กำลังดี
-        qrbox: { width: 250, height: 200 }, 
-        // 💡 ล็อกสัดส่วนภาพป้องกันการยืด
-        aspectRatio: 1.0,
-        disableFlip: false 
+    const scanner = new Html5QrcodeScanner(
+      readerId,
+      {
+        fps: 10,
+        rememberLastUsedCamera: true,
       },
+      false
+    );
+
+    scanner.render(
       (decodedText) => {
-        if (html5QrCode.isScanning) {
-          html5QrCode.stop().then(() => {
-            isScanning.current = false;
-            playSuccessSound();
-            onScanSuccess(decodedText);
-          }).catch(() => {});
-        }
+        scanner.clear();
+        playSuccessSound();
+        onScanSuccess(decodedText);
       },
-      undefined
-    ).catch((err) => {
-      console.error("Camera error:", err);
-      isScanning.current = false;
-      
-      const errString = String(err);
-      if (errString.includes('NotAllowedError') || errString.includes('Permission')) {
-        setErrorMsg('กรุณาอนุญาตให้เว็บไซต์เข้าถึงกล้อง (Allow Camera)');
-      } else if (errString.includes('NotFoundError') || errString.includes('device not found')) {
-        setErrorMsg('ไม่พบกล้องในอุปกรณ์นี้');
-      } else {
-        setErrorMsg(`เกิดข้อผิดพลาด: ${errString}`);
-      }
-    });
+      (error) => {}
+    );
 
     return () => {
-      if (scannerRef.current?.isScanning) {
-        scannerRef.current.stop().then(() => { 
-          scannerRef.current?.clear(); 
-          isScanning.current = false; 
-        }).catch(() => {});
-      }
+      scanner.clear().catch((e) => console.error(e));
     };
   }, [onScanSuccess, readerId]);
 
   return (
-    <div className="relative w-full">
-      {errorMsg && (
-        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-900/90 rounded-3xl p-6 text-center">
-          <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mb-3">
-            <span className="text-red-600 font-bold text-xl">!</span>
-          </div>
-          <p className="text-white font-bold mb-2">ไม่สามารถเปิดกล้องได้</p>
-          <p className="text-slate-300 text-sm">{errorMsg}</p>
-        </div>
-      )}
-      <div id={readerId} className="w-full rounded-3xl overflow-hidden border-8 border-slate-200 shadow-inner bg-black min-h-[300px]"></div>
+    <div className="w-full bg-white text-slate-900 rounded-3xl overflow-hidden shadow-inner">
+      <div id={readerId} className="w-full"></div>
     </div>
   );
 };
@@ -177,16 +139,13 @@ export default function KioskPage() {
                 <div className="text-6xl font-black text-slate-900 drop-shadow-sm">โซน {parcelData?.lockers?.zone} - ตู้ {parcelData?.lockers?.locker_number}</div>
               </div>
               <h3 className="text-2xl font-bold text-slate-800 mb-2">กรุณาหยิบพัสดุและสแกนบาร์โค้ด</h3>
-              <p className="text-slate-500 mb-6 font-medium">นำบาร์โค้ดหรือ QR Code มาเล็งในกรอบเพื่อยืนยัน</p>
+              <p className="text-slate-500 mb-4 font-medium">นำบาร์โค้ดหรือ QR Code มาเล็งหน้ากล้อง</p>
 
               <div className="max-w-sm mx-auto mb-4 relative">
                  {isLoading && <div className="absolute inset-0 bg-black/60 z-10 flex items-center justify-center rounded-3xl"><Loader2 className="w-12 h-12 text-white animate-spin"/></div>}
                  <FastKioskScanner onScanSuccess={(text: string) => handleBarcodeScanCheckout(text)} />
               </div>
               
-              <button onClick={() => { playSuccessSound(); handleBarcodeScanCheckout(parcelData.tracking_number); }} className="mt-4 text-sm text-slate-400 hover:text-slate-600 font-medium transition-colors">
-                (Dev Mode) ข้ามการสแกน
-              </button>
             </div>
           )}
 

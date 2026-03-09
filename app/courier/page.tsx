@@ -1,8 +1,9 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { Package, ScanBarcode, CheckCircle2, Loader2, ArrowLeft, AlertCircle } from 'lucide-react';
-import { Html5Qrcode } from 'html5-qrcode';
+import { Package, ScanBarcode, CheckCircle2, Loader2, ArrowLeft } from 'lucide-react';
+// 💡 นำเข้า Html5QrcodeScanner (ตัวสำเร็จรูปที่เสถียรที่สุด)
+import { Html5QrcodeScanner } from 'html5-qrcode';
 import Link from 'next/link';
 
 // 🎵 ฟังก์ชันสร้างเสียงสังเคราะห์ 
@@ -20,77 +21,44 @@ const playSuccessSound = () => {
   } catch (e) {}
 };
 
-// 🌟 Component สแกนเนอร์ (เพิ่มล็อกสัดส่วนภาพ กันภาพยืด)
+// 🌟 Component สแกนเนอร์แบบ UI สำเร็จรูป (แก้บั๊กกล้องตาบอด 100%)
 const FastScanner = ({ onScanSuccess, onCancel, readerId = 'reader-courier' }: any) => {
-  const scannerRef = useRef<Html5Qrcode | null>(null);
-  const isScanning = useRef(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
   useEffect(() => {
-    if (!document.getElementById(readerId) || isScanning.current) return;
-    
-    isScanning.current = true;
-    setErrorMsg(null);
+    // ล้าง UI เก่าออกป้องกันบั๊กของ React
+    const element = document.getElementById(readerId);
+    if (element) element.innerHTML = '';
 
-    const html5QrCode = new Html5Qrcode(readerId, { verbose: false });
-    scannerRef.current = html5QrCode;
-
-    html5QrCode.start(
-      { facingMode: 'environment' },
-      { 
-        fps: 10, 
-        // 💡 เปลี่ยนเป็นสี่เหลี่ยมผืนผ้าแนวนอน เพื่อให้เก็บภาพบาร์โค้ดแท่งยาวๆ ได้ครบ
-        qrbox: { width: 280, height: 150 }, 
-        // 💡 ล็อกสัดส่วนภาพให้เป็น 1:1 ป้องกันเลนส์กล้องบีบหรือยืดภาพ
-        aspectRatio: 1.0, 
-        disableFlip: false 
+    const scanner = new Html5QrcodeScanner(
+      readerId,
+      {
+        fps: 10,
+        rememberLastUsedCamera: true, // ให้ระบบจำกล้องล่าสุดไว้
+        showTorchButtonIfSupported: true, // เปิดปุ่มไฟฉาย (ถ้ามือถือรองรับ)
       },
+      false // ปิดการแสดง Log รกๆ
+    );
+
+    scanner.render(
       (decodedText) => {
-        if (html5QrCode.isScanning) {
-          html5QrCode.stop().then(() => {
-            isScanning.current = false;
-            playSuccessSound();
-            onScanSuccess(decodedText);
-          }).catch(() => {});
-        }
+        scanner.clear(); // ปิดกล้องทันทีที่สแกนสำเร็จ
+        playSuccessSound();
+        onScanSuccess(decodedText);
       },
-      undefined // ปิดการแจ้งเตือน Error ยิบย่อยตอนกำลังสแกนหา
-    ).catch((err) => {
-      console.error("Camera error:", err);
-      isScanning.current = false;
-      
-      const errString = String(err);
-      if (errString.includes('NotAllowedError') || errString.includes('Permission')) {
-        setErrorMsg('กรุณาอนุญาตให้เว็บไซต์เข้าถึงกล้อง (Allow Camera)');
-      } else if (errString.includes('NotFoundError') || errString.includes('device not found')) {
-        setErrorMsg('ไม่พบกล้องในอุปกรณ์นี้');
-      } else {
-        setErrorMsg(`เกิดข้อผิดพลาด: ${errString}`);
+      (error) => {
+        // ซ่อนข้อความ Error ระหว่างกล้องกำลังพยายามโฟกัส
       }
-    });
+    );
 
     return () => {
-      if (scannerRef.current?.isScanning) {
-        scannerRef.current.stop().then(() => { 
-          scannerRef.current?.clear(); 
-          isScanning.current = false; 
-        }).catch(() => {});
-      }
+      scanner.clear().catch((e) => console.error(e));
     };
   }, [onScanSuccess, readerId]);
 
   return (
-    <div className="relative w-full">
-      {errorMsg && (
-        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-900/90 rounded-2xl p-6 text-center">
-          <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mb-3">
-            <span className="text-red-600 font-bold text-xl">!</span>
-          </div>
-          <p className="text-white font-bold mb-2">ไม่สามารถเปิดกล้องได้</p>
-          <p className="text-slate-300 text-sm">{errorMsg}</p>
-        </div>
-      )}
-      <div id={readerId} className="w-full rounded-2xl overflow-hidden border-4 border-slate-100 shadow-inner bg-black min-h-[300px]"></div>
+    <div className="relative w-full flex flex-col items-center">
+      {/* ปล่อยให้ Library ควบคุมหน้าตากล้องและกรอบโฟกัสเองทั้งหมด */}
+      <div id={readerId} className="w-full bg-white text-slate-900 rounded-2xl overflow-hidden shadow-inner [&>div]:border-none"></div>
+      
       <button onClick={onCancel} className="mt-6 w-full py-4 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-xl font-bold transition-colors shadow-sm">
         ยกเลิก
       </button>
@@ -235,7 +203,7 @@ export default function CourierPage() {
         <div className="fixed inset-0 bg-slate-900/90 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
           <div className="bg-white p-6 rounded-3xl shadow-2xl w-full max-w-md text-center">
             <h2 className="text-2xl font-bold text-slate-900 mb-2">สแกนบาร์โค้ดหน้ากล่อง</h2>
-            <p className="text-slate-500 mb-6 font-medium">นำบาร์โค้ด/QR Code มาเล็งในกรอบ</p>
+            <p className="text-slate-500 mb-4 font-medium">นำบาร์โค้ดมาเล็งที่กล้อง</p>
             <FastScanner onScanSuccess={(text: string) => { setTrackingNumber(text); setShowScanner(false); }} onCancel={() => setShowScanner(false)} />
           </div>
         </div>
