@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { ScanBarcode, CheckCircle2, Package, Loader2, AlertCircle, ArrowLeft } from 'lucide-react';
-import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
+import { Html5Qrcode } from 'html5-qrcode';
 import Link from 'next/link';
 
 // 🎵 ฟังก์ชันสร้างเสียงสังเคราะห์ 
@@ -20,28 +20,29 @@ const playSuccessSound = () => {
   } catch (e) {}
 };
 
-// 🌟 Component สแกนเนอร์สำหรับ Kiosk (มีกรอบเล็งเป้าแล้ว)
+// 🌟 Component สแกนเนอร์สำหรับ Kiosk (ล็อกสัดส่วนภาพ)
 const FastKioskScanner = ({ onScanSuccess, readerId = 'reader-kiosk' }: any) => {
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const isScanning = useRef(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isScanning.current) return;
+    if (!document.getElementById(readerId) || isScanning.current) return;
+    
     isScanning.current = true;
+    setErrorMsg(null);
 
-    const formatsToSupport = [ 
-      Html5QrcodeSupportedFormats.QR_CODE, 
-      Html5QrcodeSupportedFormats.CODE_128, 
-      Html5QrcodeSupportedFormats.CODE_39 
-    ];
-    const html5QrCode = new Html5Qrcode(readerId, { verbose: false, formatsToSupport });
+    const html5QrCode = new Html5Qrcode(readerId, { verbose: false });
     scannerRef.current = html5QrCode;
 
     html5QrCode.start(
-      { facingMode: 'user' }, // ตู้ Kiosk ใช้กล้องหน้า
+      { facingMode: 'user' }, 
       { 
-        fps: 15, 
-        qrbox: 250, // 💡 สร้างกรอบสี่เหลี่ยม 250x250px เพื่อช่วยโฟกัส
+        fps: 10, 
+        // 💡 ตู้ Kiosk ใช้สแกนทั้ง QR และบาร์โค้ด ใช้กรอบขนาด 250x200 กำลังดี
+        qrbox: { width: 250, height: 200 }, 
+        // 💡 ล็อกสัดส่วนภาพป้องกันการยืด
+        aspectRatio: 1.0,
         disableFlip: false 
       },
       (decodedText) => {
@@ -53,17 +54,45 @@ const FastKioskScanner = ({ onScanSuccess, readerId = 'reader-kiosk' }: any) => 
           }).catch(() => {});
         }
       },
-      () => {}
-    ).catch(() => { isScanning.current = false; });
+      undefined
+    ).catch((err) => {
+      console.error("Camera error:", err);
+      isScanning.current = false;
+      
+      const errString = String(err);
+      if (errString.includes('NotAllowedError') || errString.includes('Permission')) {
+        setErrorMsg('กรุณาอนุญาตให้เว็บไซต์เข้าถึงกล้อง (Allow Camera)');
+      } else if (errString.includes('NotFoundError') || errString.includes('device not found')) {
+        setErrorMsg('ไม่พบกล้องในอุปกรณ์นี้');
+      } else {
+        setErrorMsg(`เกิดข้อผิดพลาด: ${errString}`);
+      }
+    });
 
     return () => {
       if (scannerRef.current?.isScanning) {
-        scannerRef.current.stop().then(() => { scannerRef.current?.clear(); isScanning.current = false; }).catch(() => {});
+        scannerRef.current.stop().then(() => { 
+          scannerRef.current?.clear(); 
+          isScanning.current = false; 
+        }).catch(() => {});
       }
     };
   }, [onScanSuccess, readerId]);
 
-  return <div id={readerId} className="w-full rounded-3xl overflow-hidden border-8 border-slate-200 shadow-inner bg-black min-h-[300px]"></div>;
+  return (
+    <div className="relative w-full">
+      {errorMsg && (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-900/90 rounded-3xl p-6 text-center">
+          <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mb-3">
+            <span className="text-red-600 font-bold text-xl">!</span>
+          </div>
+          <p className="text-white font-bold mb-2">ไม่สามารถเปิดกล้องได้</p>
+          <p className="text-slate-300 text-sm">{errorMsg}</p>
+        </div>
+      )}
+      <div id={readerId} className="w-full rounded-3xl overflow-hidden border-8 border-slate-200 shadow-inner bg-black min-h-[300px]"></div>
+    </div>
+  );
 };
 
 export default function KioskPage() {

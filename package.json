@@ -13,7 +13,6 @@
     "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
   },
   "dependencies": {
-    "@opennextjs/cloudflare": "^1.17.1",
     "@supabase/supabase-js": "^2.98.0",
     "html5-qrcode": "^2.3.8",
     "lucide-react": "^0.577.0",
@@ -22,6 +21,7 @@
     "react-dom": "19.2.3"
   },
   "devDependencies": {
+    "@opennextjs/cloudflare": "^1.17.1",
     "@tailwindcss/postcss": "^4.2.1",
     "@types/node": "^20",
     "@types/react": "^19",
