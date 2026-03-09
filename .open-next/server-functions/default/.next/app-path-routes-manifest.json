@@ -1,0 +1,11 @@
+{
+  "/_global-error/page": "/_global-error",
+  "/_not-found/page": "/_not-found",
+  "/api/moodle/login/route": "/api/moodle/login",
+  "/api/moodle/search/route": "/api/moodle/search",
+  "/courier/page": "/courier",
+  "/icon/route": "/icon",
+  "/kiosk/page": "/kiosk",
+  "/page": "/",
+  "/student/page": "/student"
+}

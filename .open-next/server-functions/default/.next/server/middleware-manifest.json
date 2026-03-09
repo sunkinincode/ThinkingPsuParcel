@@ -1,0 +1,52 @@
+{
+  "version": 3,
+  "middleware": {},
+  "sortedMiddleware": [],
+  "functions": {
+    "/icon/route": {
+      "files": [
+        "server/middleware-build-manifest.js",
+        "server/interception-route-rewrite-manifest.js",
+        "required-server-files.js",
+        "server/server-reference-manifest.js",
+        "server/app/icon/route_client-reference-manifest.js",
+        "server/edge/chunks/_next-internal_server_app_icon_route_actions_6c46f2f4.js",
+        "server/edge/chunks/[root-of-the-server]__8d58fdc2._.js",
+        "server/edge/chunks/[root-of-the-server]__0c877222._.js",
+        "server/edge/chunks/node_modules_next_dist_compiled_@vercel_og_16be1ace._.js",
+        "server/edge/chunks/turbopack-node_modules_next_dist_esm_build_templates_edge-wrapper_351e329e.js"
+      ],
+      "name": "app/icon/route",
+      "page": "/icon/route",
+      "matchers": [
+        {
+          "regexp": "^/icon(?:/)?$",
+          "originalSource": "/icon"
+        }
+      ],
+      "wasm": [
+        {
+          "name": "wasm_fdb56e4cc5936d29",
+          "filePath": "server/edge/chunks/node_modules_next_dist_compiled_@vercel_og_resvg_23ace1ce.wasm"
+        },
+        {
+          "name": "wasm_1ccdc983b1fd9f87",
+          "filePath": "server/edge/chunks/node_modules_next_dist_compiled_@vercel_og_yoga_23ace1ce.wasm"
+        }
+      ],
+      "assets": [
+        {
+          "name": "server/edge/assets/noto-sans-v27-latin-regular.bdfa676c.ttf",
+          "filePath": "server/edge/assets/noto-sans-v27-latin-regular.bdfa676c.ttf"
+        }
+      ],
+      "env": {
+        "__NEXT_BUILD_ID": "UPytLgAnuNpOWru1EumR_",
+        "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY": "2A6YudeQsoiFh5w6KhgYOQnv6nfVAtkaOrgdP7uEj18=",
+        "__NEXT_PREVIEW_MODE_ID": "6e35e451ea8e1f3348bb49f66efcd423",
+        "__NEXT_PREVIEW_MODE_ENCRYPTION_KEY": "d7cbcd8b74acd01733c84eb0b51d9965eceed3928c462dc8fdc55749bf43356e",
+        "__NEXT_PREVIEW_MODE_SIGNING_KEY": "dc2c24d48c768be5fbe8b0ffdd2ffaccbc0c0a2733b1340af8f272a446d7f6dd"
+      }
+    }
+  }
+}
